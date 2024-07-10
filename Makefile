@@ -2,7 +2,7 @@ all: build
 
 build:
 	@echo "building go binary..."
-	@go build -o main main.go
+	@go build -o main cmd/tui/main.go
 
 run: build
 	@echo "running binary..."
@@ -11,9 +11,5 @@ run: build
 clean:
 	@echo "cleaning Go binary..."
 	@rm main
-
-# Live Reload
-watch:
-	@${HOME}/go/bin/air
 
 .PHONY: all build run clean watch
