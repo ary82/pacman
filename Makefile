@@ -18,6 +18,8 @@ run-ssh: build-ssh
 
 clean:
 	@echo "cleaning Go binaries..."
-	@rm tui-bin ssh-bin
+	@rm -f tui-bin ssh-bin
+	@echo "cleaning .ssh dir..."
+	@rm -rf .ssh
 
 .PHONY: all build-tui build-ssh run-tui run-ssh clean
