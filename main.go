@@ -6,14 +6,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/ary82/pacman/utils"
+	"github.com/ary82/pacman/internal/style"
+	"github.com/ary82/pacman/internal/utils"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
-type model struct {
+type game struct {
 	board  [31][28]int
-	lives  int
 	score  int
 	pacman pacman
 	ghosts [4]*ghost
@@ -23,18 +22,21 @@ type pacman struct {
 	xPosition int
 	yPosition int
 	direction int // 0: static, 1: up, 2: down, 3: left 4: right
+	lives     int
 }
 
 type ghost struct {
 	xPosition               int
 	yPosition               int
 	viewCode                int
-	isCurrentPositionPallet bool
+	isCurrentPositionPellet bool
+	direction               int // 0: static, 1: up, 2: down, 3: left 4: right
 }
 
 type (
 	updatePacmanPosition int
 	updateGhostsPosition int
+	gameOverMsg          int
 )
 
 const (
@@ -45,17 +47,8 @@ const (
 	pelletStr string = " 🞄 "
 )
 
-var (
-	pacmanStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
-	blockStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("4"))
-	blinkyStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
-	pinkyStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("13"))
-	inkyStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	clydeStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("202"))
-)
-
-func initialModel() model {
-	return model{
+func initialGameModel() game {
+	return game{
 		board: [31][28]int{
 			{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			{0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0},
@@ -93,9 +86,9 @@ func initialModel() model {
 			xPosition: 1,
 			yPosition: 1,
 			direction: 0,
+			lives:     3,
 		},
 		score: 0,
-		lives: 3,
 		ghosts: [4]*ghost{
 			{xPosition: 15, yPosition: 12, viewCode: 4},
 			{xPosition: 15, yPosition: 13, viewCode: 5},
@@ -106,29 +99,32 @@ func initialModel() model {
 }
 
 func movePacman() tea.Cmd {
-	return tea.Every(200*time.Millisecond, func(t time.Time) tea.Msg {
+	return tea.Every(500*time.Millisecond, func(t time.Time) tea.Msg {
 		return updatePacmanPosition(0)
 	})
 }
 
 func moveGhosts() tea.Cmd {
-	return tea.Every(100*time.Millisecond, func(t time.Time) tea.Msg {
+	return tea.Every(350*time.Millisecond, func(t time.Time) tea.Msg {
 		return updateGhostsPosition(0)
 	})
 }
 
-func (m model) Init() tea.Cmd {
+func gameOver() tea.Msg {
+	return gameOverMsg(0)
+}
+
+func (m game) Init() tea.Cmd {
 	return tea.Batch(
 		movePacman(),
 		moveGhosts(),
 	)
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m game) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	// Is it a key press?
-	case tea.KeyMsg:
 
+	case tea.KeyMsg:
 		switch msg.String() {
 		case "j", "down", "s":
 			m.pacman.direction = 2
@@ -138,8 +134,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.pacman.direction = 3
 		case "l", "right", "d":
 			m.pacman.direction = 4
-
-		// These keys should exit the program.
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		}
@@ -184,7 +178,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if m.score == 300 {
-			return m, tea.Quit
+			return m, gameOver
 		}
 		return m, movePacman()
 
@@ -193,34 +187,37 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			prevX := ghost.xPosition
 			prevY := ghost.yPosition
 
-			positions := utils.CalculatePosibbleNextTile(m.board, ghost.xPosition, ghost.yPosition)
+			positions := utils.CalculatePosibbleNextTile(m.board, ghost.xPosition, ghost.yPosition, ghost.direction)
 			randNum := rand.Intn(len(positions))
 
 			newX := positions[randNum][0]
 			newY := positions[randNum][1]
+			newDirection := positions[randNum][2]
 
 			ghost.xPosition = newX
 			ghost.yPosition = newY
+			ghost.direction = newDirection
 
-			if ghost.isCurrentPositionPallet {
+			if ghost.isCurrentPositionPellet {
 				m.board[prevX][prevY] = 1
 			} else {
 				m.board[prevX][prevY] = 3
 			}
 
 			if m.board[newX][newY] == 1 {
-				ghost.isCurrentPositionPallet = true
+				ghost.isCurrentPositionPellet = true
 			} else {
-				ghost.isCurrentPositionPallet = false
+				ghost.isCurrentPositionPellet = false
 			}
 
 			if m.board[newX][newY] == 2 {
 				m.pacman.xPosition = 1
 				m.pacman.yPosition = 1
-				m.lives -= 1
+				m.pacman.direction = 0
+				m.pacman.lives -= 1
 			}
 
-			if m.lives == 0 {
+			if m.pacman.lives == 0 {
 				return m, gameOver
 			}
 
@@ -234,57 +231,50 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-type gameOverMsg int
-
-func gameOver() tea.Msg {
-	return gameOverMsg(0)
-}
-
-func (m model) View() string {
-	s := fmt.Sprintf("\nSCORE: %v\tLIVES: %v\n\n", m.score, m.lives)
+func (m game) View() string {
+	s := fmt.Sprintf("\nSCORE: %v\tLIVES: %v\n\n", m.score, m.pacman.lives)
 
 	for _, v := range m.board {
 		for _, num := range v {
 			switch num {
 			case 0:
-				s += blockStyle.Render(blockStr)
+				s += style.Block.Render(blockStr)
 			case 1:
 				s += pelletStr
 			case 2:
-				s += pacmanStyle.Render(pacmanStr)
+				s += style.Pacman.Render(pacmanStr)
 			case 3:
 				s += emptyStr
 			case 4:
-				s += blinkyStyle.Render(ghostStr)
+				s += style.Blinky.Render(ghostStr)
 			case 5:
-				s += pinkyStyle.Render(ghostStr)
+				s += style.Pinky.Render(ghostStr)
 			case 6:
-				s += inkyStyle.Render(ghostStr)
+				s += style.Inky.Render(ghostStr)
 			case 7:
-				s += clydeStyle.Render(ghostStr)
+				s += style.Clyde.Render(ghostStr)
 			}
 		}
 		s += "\n"
 	}
 
 	// Log pacman position
-	s += fmt.Sprintf("pacman: {%v, %v}, direction: %v\n",
-		m.pacman.xPosition,
-		m.pacman.yPosition,
-		m.pacman.direction,
-	)
+	// s += fmt.Sprintf("pacman: {%v, %v}, direction: %v\n",
+	// 	m.pacman.xPosition,
+	// 	m.pacman.yPosition,
+	// 	m.pacman.direction,
+	// )
 
 	// Log ghosts position
-	for i, v := range m.ghosts {
-		s += fmt.Sprintf("ghost %v: {%v, %v}\n", i, v.xPosition, v.yPosition)
-	}
+	// for i, v := range m.ghosts {
+	// 	s += fmt.Sprintf("ghost %v: {%v, %v}\n", i, v.xPosition, v.yPosition)
+	// }
 
-	// Send the UI for rendering
 	return s
 }
 
 func main() {
-	model := initialModel()
+	model := initialGameModel()
 	p := tea.NewProgram(model)
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("error: %v", err)
