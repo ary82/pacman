@@ -3,6 +3,7 @@ package game
 import (
 	"time"
 
+	"github.com/ary82/pacman/internal/style"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -11,6 +12,7 @@ type Game struct {
 	Score  int
 	Pacman Pacman
 	Ghosts [4]*Ghost
+	Styles style.Styles
 }
 
 type Pacman struct {

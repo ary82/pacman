@@ -5,7 +5,6 @@ import (
 	"math/rand"
 
 	"github.com/ary82/pacman/internal/constants"
-	"github.com/ary82/pacman/internal/style"
 	"github.com/ary82/pacman/internal/utils"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -134,21 +133,21 @@ func (m Game) View() string {
 		for _, num := range v {
 			switch num {
 			case 0:
-				s += style.Block.Render(constants.BlockStr)
+				s += m.Styles.Block.Render(constants.BlockStr)
 			case 1:
 				s += constants.PelletStr
 			case 2:
-				s += style.Pacman.Render(constants.PacmanStr)
+				s += m.Styles.Pacman.Render(constants.PacmanStr)
 			case 3:
 				s += constants.EmptyStr
 			case 4:
-				s += style.Blinky.Render(constants.GhostStr)
+				s += m.Styles.Blinky.Render(constants.GhostStr)
 			case 5:
-				s += style.Pinky.Render(constants.GhostStr)
+				s += m.Styles.Pinky.Render(constants.GhostStr)
 			case 6:
-				s += style.Inky.Render(constants.GhostStr)
+				s += m.Styles.Inky.Render(constants.GhostStr)
 			case 7:
-				s += style.Clyde.Render(constants.GhostStr)
+				s += m.Styles.Clyde.Render(constants.GhostStr)
 			}
 		}
 		s += "\n"

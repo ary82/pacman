@@ -1,15 +1,23 @@
-all: build
+all: build-tui build-ssh
 
-build:
-	@echo "building go binary..."
-	@go build -o main cmd/tui/main.go
+build-tui:
+	@echo "building tui binary..."
+	@go build -o tui-bin cmd/tui/main.go
 
-run: build
-	@echo "running binary..."
-	@./main
+run-tui: build-tui
+	@echo "running tui binary..."
+	@./tui-bin
+
+build-ssh:
+	@echo "building ssh binary..."
+	@go build -o ssh-bin cmd/ssh/main.go
+
+run-ssh: build-ssh
+	@echo "running ssh binary..."
+	@./ssh-bin
 
 clean:
-	@echo "cleaning Go binary..."
-	@rm main
+	@echo "cleaning Go binaries..."
+	@rm tui-bin ssh-bin
 
-.PHONY: all build run clean watch
+.PHONY: all build-tui build-ssh run-tui run-ssh clean
