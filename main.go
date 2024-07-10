@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"time"
 
+	"github.com/ary82/pacman/utils"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -14,7 +16,7 @@ type model struct {
 	lives  int
 	score  int
 	pacman pacman
-	ghosts [4]ghost
+	ghosts [4]*ghost
 }
 
 type pacman struct {
@@ -24,11 +26,16 @@ type pacman struct {
 }
 
 type ghost struct {
-	xPosition int
-	yPosition int
+	xPosition               int
+	yPosition               int
+	viewCode                int
+	isCurrentPositionPallet bool
 }
 
-type updatePacmanPosition int
+type (
+	updatePacmanPosition int
+	updateGhostsPosition int
+)
 
 const (
 	blockStr  string = "███"
@@ -89,23 +96,32 @@ func initialModel() model {
 		},
 		score: 0,
 		lives: 3,
-		ghosts: [4]ghost{
-			{xPosition: 15, yPosition: 12},
-			{xPosition: 15, yPosition: 13},
-			{xPosition: 15, yPosition: 14},
-			{xPosition: 15, yPosition: 15},
+		ghosts: [4]*ghost{
+			{xPosition: 15, yPosition: 12, viewCode: 4},
+			{xPosition: 15, yPosition: 13, viewCode: 5},
+			{xPosition: 15, yPosition: 14, viewCode: 6},
+			{xPosition: 15, yPosition: 15, viewCode: 7},
 		},
 	}
 }
 
 func movePacman() tea.Cmd {
-	return tea.Every(50*time.Millisecond, func(t time.Time) tea.Msg {
+	return tea.Every(200*time.Millisecond, func(t time.Time) tea.Msg {
 		return updatePacmanPosition(0)
 	})
 }
 
+func moveGhosts() tea.Cmd {
+	return tea.Every(100*time.Millisecond, func(t time.Time) tea.Msg {
+		return updateGhostsPosition(0)
+	})
+}
+
 func (m model) Init() tea.Cmd {
-	return movePacman()
+	return tea.Batch(
+		movePacman(),
+		moveGhosts(),
+	)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -167,13 +183,43 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.board[newX][newY] = 2
 		}
 		return m, movePacman()
+
+	case updateGhostsPosition:
+		for _, ghost := range m.ghosts {
+			prevX := ghost.xPosition
+			prevY := ghost.yPosition
+
+			positions := utils.CalculatePosibbleNextTile(m.board, ghost.xPosition, ghost.yPosition)
+			randNum := rand.Intn(len(positions))
+
+			newX := positions[randNum][0]
+			newY := positions[randNum][1]
+
+			ghost.xPosition = newX
+			ghost.yPosition = newY
+
+			if ghost.isCurrentPositionPallet {
+				m.board[prevX][prevY] = 1
+			} else {
+				m.board[prevX][prevY] = 3
+			}
+
+			if m.board[newX][newY] == 1 {
+				ghost.isCurrentPositionPallet = true
+			} else {
+				ghost.isCurrentPositionPallet = false
+			}
+
+			m.board[newX][newY] = ghost.viewCode
+		}
+		return m, moveGhosts()
 	}
 
 	return m, nil
 }
 
 func (m model) View() string {
-	s := ""
+	s := fmt.Sprintf("\nSCORE: %v\n\n", m.score)
 
 	for _, v := range m.board {
 		for _, num := range v {
@@ -186,14 +232,30 @@ func (m model) View() string {
 				s += pacmanStyle.Render(pacmanStr)
 			case 3:
 				s += emptyStr
+			case 4:
+				s += blinkyStyle.Render(ghostStr)
+			case 5:
+				s += pinkyStyle.Render(ghostStr)
+			case 6:
+				s += inkyStyle.Render(ghostStr)
+			case 7:
+				s += clydeStyle.Render(ghostStr)
 			}
 		}
 		s += "\n"
 	}
-	s += fmt.Sprintf("direction: %v\n", m.pacman.direction)
-	s += fmt.Sprintf("score: %v\n", m.score)
-	s += fmt.Sprintf("xPosition: %v\n", m.pacman.xPosition)
-	s += fmt.Sprintf("yPosition: %v\n", m.pacman.yPosition)
+
+	// Log pacman position
+	s += fmt.Sprintf("pacman: {%v, %v}, direction: %v\n",
+		m.pacman.xPosition,
+		m.pacman.yPosition,
+		m.pacman.direction,
+	)
+
+	// Log ghosts position
+	for i, v := range m.ghosts {
+		s += fmt.Sprintf("ghost %v: {%v, %v}\n", i, v.xPosition, v.yPosition)
+	}
 
 	// Send the UI for rendering
 	return s
