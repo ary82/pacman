@@ -182,6 +182,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.board[prevX][prevY] = 3
 			m.board[newX][newY] = 2
 		}
+
+		if m.score == 300 {
+			return m, tea.Quit
+		}
 		return m, movePacman()
 
 	case updateGhostsPosition:
@@ -210,16 +214,34 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				ghost.isCurrentPositionPallet = false
 			}
 
+			if m.board[newX][newY] == 2 {
+				m.pacman.xPosition = 1
+				m.pacman.yPosition = 1
+				m.lives -= 1
+			}
+
+			if m.lives == 0 {
+				return m, gameOver
+			}
+
 			m.board[newX][newY] = ghost.viewCode
 		}
 		return m, moveGhosts()
+	case gameOverMsg:
+		return m, tea.Quit
 	}
 
 	return m, nil
 }
 
+type gameOverMsg int
+
+func gameOver() tea.Msg {
+	return gameOverMsg(0)
+}
+
 func (m model) View() string {
-	s := fmt.Sprintf("\nSCORE: %v\n\n", m.score)
+	s := fmt.Sprintf("\nSCORE: %v\tLIVES: %v\n\n", m.score, m.lives)
 
 	for _, v := range m.board {
 		for _, num := range v {
