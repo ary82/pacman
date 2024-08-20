@@ -2,7 +2,7 @@ all: build-tui build-ssh
 
 build-tui:
 	@echo "building tui binary..."
-	@go build -o tui-bin cmd/tui/main.go
+	@go build -o tui-bin cmd/pacman-tui/main.go
 
 run-tui: build-tui
 	@echo "running tui binary..."
